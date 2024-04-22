@@ -62,6 +62,8 @@ from src.models.models_tumbling.modeladacs import init_ModelADACS
 
 from src.models.models_imaging.modelimaginglogicbased import init_ModelImagingLogicBased
 
+from src.models.models_cdn_provider.modelcdnprovider import init_ModelCDNProvider
+from src.models.models_cdn_user.modelcdnuser import init_ModelCDNUser
 modelInitDictionary = {
     "ModelOrbit" : init_ModelOrbit,
     "ModelOrbitOneFullUpdate": init_ModelOrbitOneFullUpdate,
@@ -94,5 +96,8 @@ modelInitDictionary = {
     
     "ModelADACS": init_ModelADACS,
     
-    "ModelImagingLogicBased": init_ModelImagingLogicBased
+    "ModelImagingLogicBased": init_ModelImagingLogicBased,
+
+    "ModelCDNProvider": init_ModelCDNProvider,
+    "ModelCDNUser": init_ModelCDNUser
     }

@@ -121,7 +121,6 @@ class ModelFovTimeBased(IModel):
             _myTime = self.__ownernode.timestamp
         else:
             _myTime = _kwargs['_myTime']  
-        
         _targetNodeTypes = _kwargs['_targetNodeTypes']
         
         #If the pass times have not been preloaded, don't bother searching
@@ -144,7 +143,6 @@ class ModelFovTimeBased(IModel):
         #if len(_fpDesiredInds) > 0 and _myTime not in _kwargs:
         #    #Let's update the list. We don't need to keep the old ones 
         #    ModelFovTimeBased.__nodeToTimes[self.__ownernode.nodeID] = _fp[_fpDesiredInds[0]:] 
-        
         return _ret
     
     def __log_Pass(self, _otherNode:INode, _startTime:'Time', _endTime:'Time'):
@@ -308,7 +306,6 @@ class ModelFovTimeBased(IModel):
             The API return
         '''
         _ret = None
-
         try:
             _ret = self.__apiHandlerDictionary[_apiName](self, **_kwargs)
         except Exception as e:
