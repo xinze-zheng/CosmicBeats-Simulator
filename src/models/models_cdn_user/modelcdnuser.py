@@ -1,23 +1,15 @@
-'''
-// Copyright (c) Microsoft Corporation.
-// Licensed under the MIT license.
-
-Created by: Om Chabra
-Created on: 22 Dec 2022
-@desc
-    This module implements the field of view (FoV) operation for a node. 
-    It offers improved performance compared to the normal "modelhelperfov" model, especially when the timestep is small (refer to the fov test case for performance comparisons). 
-    The FoV operation is based on finding the time of intersection with a satellite, and it does not involve calculating the elevation angles. 
-    One unique aspect of this model is the presence of a static variable that holds all the pass times. 
-    This design choice aims to avoid redundant computations. 
-    Once the pass times for a satellite are calculated, they are reused in the ground station to prevent unnecessary recalculation.
-'''
 from src.models.imodel import IModel, EModelTag
 from src.nodes.inode import INode, ENodeType
 from src.nodes.itopology import ITopology
 from src.simlogging.ilogger import ILogger
 from src.sim.imanager import EManagerReqType
 from src.simlogging.ilogger import ILogger, ELogType
+
+from src.models.models_cdn_user.access_generation_function.generate_by_distribution import generateByDistribution
+from src.models.models_cdn_user.scheduling_strategy_function.schedule_largest_elevation import schduleLargestElevation
+
+import numpy as np
+import json
 
 class ModelCDNUser(IModel):
    
@@ -119,7 +111,10 @@ class ModelCDNUser(IModel):
         self, 
         _ownernodeins: INode, 
         _loggerins: ILogger,
-        _file_path: str
+        _patternPath: str,
+        _accessGenerationFunction: str,
+        _schedulingStrategyFunction: str,
+        _accessToGen: int
         ) -> None:
         '''
         @desc
@@ -136,10 +131,27 @@ class ModelCDNUser(IModel):
 
         self.__ownernode = _ownernodeins
         self.__logger = _loggerins
-        self.__file_path = _file_path
+        self.__patternPath = _patternPath
+        self.__accessToGen = _accessToGen
+
+        # Load access file into a dictionary
+        with open(self.__patternPath, 'r') as f:
+            self.__patternDict = json.load(f)
+        self.__patternPath
+
+        # Map strategy functions
+        self.__accessGenerationFunction: function = self.__accessGenerationFunctionDictionary[_accessGenerationFunction]
+        self.__schedulingStrategyFunction: function = self.__schedulingStrategyFunction[_schedulingStrategyFunction]
+        
 
     def Execute(self) -> None:
-        self.__send_cdn_requests()
+        # Generate some accesses
+        requests = self.__accessGenerationFunction(self.__patternDict, self.__accessToGen)
+        # Schedule one satellite
+        targetSatellite: INode = self.__schedulingStrategyFunction(self.__ownernode)
+        # Send requests to the scheduled satellite
+        cdn_cache_hit_results = targetSatellite.has_ModelWithName('ModelCDNProvider').call_APIs('handle_requests', requests=requests)
+        
 
     def __send_cdn_requests(self):
         requests = []
@@ -175,9 +187,23 @@ class ModelCDNUser(IModel):
                 else:
                     actual_latency[i] = float(actual_latency[i]) + 10
             self.__logger.write_Log(f'RRT Latency:{actual_latency}', ELogType.LOGINFO, self.__ownernode.timestamp, self.iName)
-        
-        
     
+
+    def __generate_accesses(self, size_to_gen: int=1000):
+        '''
+        This methods generate random object accesess given a access pattern
+        '''
+        return [np.random.choice(list(self.__pattern_dict.keys()), p=list(self.__pattern_dict.values())) for i in range(size_to_gen)]
+    
+
+    __accessGenerationFunctionDictionary = {
+        'generate_by_distribution': generateByDistribution
+    }
+
+    __schedulingStrategyFunctionDictionary = {
+        'schdeule_by_largest_elevation': schduleLargestElevation
+    }
+
 def init_ModelCDNUser(
                     _ownernodeins: INode, 
                     _loggerins: ILogger, 
@@ -199,5 +225,17 @@ def init_ModelCDNUser(
     # check the arguments
     assert _ownernodeins is not None
     assert _loggerins is not None
-    
-    return ModelCDNUser(_ownernodeins, _loggerins, _modelArgs.file_path)
+    assert _modelArgs.access_pattern_file is not None
+    assert _modelArgs.access_generation_function is not None
+    assert _modelArgs.scheduling_strategy_function is not None
+
+    numAccessToGen = 100
+    if _modelArgs.num_access_to_gen is not None:
+        numAccessToGen = int(_modelArgs.num_access_to_gen)
+
+    return ModelCDNUser(_ownernodeins, 
+                        _loggerins, 
+                        _modelArgs.access_pattern_file, 
+                        _modelArgs.access_generation_function, 
+                        _modelArgs.scheduling_strategy_function,
+                        numAccessToGen)
