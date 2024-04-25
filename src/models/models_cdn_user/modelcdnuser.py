@@ -141,16 +141,21 @@ class ModelCDNUser(IModel):
 
         # Map strategy functions
         self.__accessGenerationFunction: function = self.__accessGenerationFunctionDictionary[_accessGenerationFunction]
-        self.__schedulingStrategyFunction: function = self.__schedulingStrategyFunction[_schedulingStrategyFunction]
+        self.__schedulingStrategyFunction: function = self.__schedulingStrategyFunctionDictionary[_schedulingStrategyFunction]
         
 
     def Execute(self) -> None:
         # Generate some accesses
         requests = self.__accessGenerationFunction(self.__patternDict, self.__accessToGen)
         # Schedule one satellite
-        targetSatellite: INode = self.__schedulingStrategyFunction(self.__ownernode)
+        targetSatellite: INode = self.__schedulingStrategyFunction(self.__ownernode, self.__ownernode.managerInstance.req_Manager(EManagerReqType.GET_TOPOLOGIES))
+        if targetSatellite is None:
+            self.__logger.write_Log(f"[Warning]: Out of service", ELogType.LOGINFO, self.__ownernode.timestamp)
+            return
         # Send requests to the scheduled satellite
         cdn_cache_hit_results = targetSatellite.has_ModelWithName('ModelCDNProvider').call_APIs('handle_requests', requests=requests)
+        self.__logger.write_Log(f"[Requests]:{requests}", ELogType.LOGINFO, self.__ownernode.timestamp)
+        self.__logger.write_Log(f"[Hit rate]:{targetSatellite.nodeID},{len([0 for i in cdn_cache_hit_results if i])/len(cdn_cache_hit_results)}", ELogType.LOGINFO, self.__ownernode.timestamp)
         
 
     def __send_cdn_requests(self):
@@ -224,7 +229,7 @@ def init_ModelCDNUser(
     assert _modelArgs.scheduling_strategy_function is not None
 
     numAccessToGen = 100
-    if _modelArgs.num_access_to_gen is not None:
+    if "num_access_to_gen" in _modelArgs:
         numAccessToGen = int(_modelArgs.num_access_to_gen)
 
     return ModelCDNUser(_ownernodeins, 

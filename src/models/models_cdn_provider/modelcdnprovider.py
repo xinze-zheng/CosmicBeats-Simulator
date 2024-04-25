@@ -135,6 +135,7 @@ class ModelCDNProvider(IModel):
         assert _ownernodeins is not None
         assert _loggerins is not None
 
+        self.__logger = _loggerins
         self.__ownernode = _ownernodeins
 
         self.__cache = OrderedDict()
@@ -142,15 +143,15 @@ class ModelCDNProvider(IModel):
         self.__cacheCapacity= _cacheCapacity
         self.__cacheEvictionStrategy: callable = self.__cacheEvictionStrategyDictionary[_cacheEvictionStrategy]
         self.__handleRequestsStrategy: callable = self.__handleRequestsStrategyDictionary[_handleRequestsStrategy]
-        self.__activeSchedulingStrategy = _activeSchedulingStrategy
+        self.__activeSchedulingStrategy: callable = self.__activeSchedulingStrategyDictionary[_activeSchedulingStrategy]
 
                             
     def Execute(self) -> None:
         # Run active scheduling policies
-        self.__activeSchedulingStrategy()
+        self.__activeSchedulingStrategy(self)
 
     def __handle_requests(self, **kwargs) -> list:
-        self.__handleRequestsStrategy(requests=kwargs['requests'])
+        return self.__handleRequestsStrategy(self, requests=kwargs['requests'])
 
     # Local strategy functions
     def __check_local_cache_only(self, **kwargs):
@@ -169,8 +170,10 @@ class ModelCDNProvider(IModel):
                     self.__cacheEvictionStrategy(cache=self.__cache)
                 self.__cache[request] = True
                 hits.append(False)
-
         return hits 
+    
+    def __no_op(self, **kwargs):
+        pass
     
     __apiHandlerDictionary = {
         "handle_requests": __handle_requests
@@ -182,6 +185,10 @@ class ModelCDNProvider(IModel):
 
     __handleRequestsStrategyDictionary = {
         "check_local_cache_only": __check_local_cache_only
+    }
+
+    __activeSchedulingStrategyDictionary = {
+        "no_op": __no_op
     }
 
     

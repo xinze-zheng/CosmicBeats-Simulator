@@ -36,6 +36,7 @@ from src.models.models_orbital.modelfixedorbit import init_ModelFixedOrbit
 
 from src.models.models_fov.modelhelperfov import init_ModelHelperFoV
 from src.models.models_fov.modelfovtimebased import init_ModelFovTimeBased
+from src.models.models_fov.modelhelperfovwithelevation import init_ModelHelperFoVWithElevation
 
 from src.models.models_power.modelpower import init_ModelPower
 
@@ -71,6 +72,7 @@ modelInitDictionary = {
     
     "ModelHelperFoV": init_ModelHelperFoV,
     "ModelFovTimeBased": init_ModelFovTimeBased,
+    "ModelHelperFoVWithElevation": init_ModelHelperFoVWithElevation,
 
     "ModelDataGenerator": init_ModelDataGenerator,
     
