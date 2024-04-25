@@ -1,0 +1,1 @@
+python3 create.py  starlinks.txt loc loc "2024-04-01 12:00:00" "2024-04-01 14:00:00" 20 config.json
