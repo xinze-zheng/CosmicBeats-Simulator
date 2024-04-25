@@ -189,13 +189,6 @@ class ModelCDNUser(IModel):
             self.__logger.write_Log(f'RRT Latency:{actual_latency}', ELogType.LOGINFO, self.__ownernode.timestamp, self.iName)
     
 
-    def __generate_accesses(self, size_to_gen: int=1000):
-        '''
-        This methods generate random object accesess given a access pattern
-        '''
-        return [np.random.choice(list(self.__pattern_dict.keys()), p=list(self.__pattern_dict.values())) for i in range(size_to_gen)]
-    
-
     __accessGenerationFunctionDictionary = {
         'generate_by_distribution': generateByDistribution
     }
@@ -203,6 +196,7 @@ class ModelCDNUser(IModel):
     __schedulingStrategyFunctionDictionary = {
         'schdeule_by_largest_elevation': schduleLargestElevation
     }
+
 
 def init_ModelCDNUser(
                     _ownernodeins: INode, 

@@ -1,17 +1,3 @@
-'''
-// Copyright (c) Microsoft Corporation.
-// Licensed under the MIT license.
-
-Created by: Om Chabra
-Created on: 22 Dec 2022
-@desc
-    This module implements the field of view (FoV) operation for a node. 
-    It offers improved performance compared to the normal "modelhelperfov" model, especially when the timestep is small (refer to the fov test case for performance comparisons). 
-    The FoV operation is based on finding the time of intersection with a satellite, and it does not involve calculating the elevation angles. 
-    One unique aspect of this model is the presence of a static variable that holds all the pass times. 
-    This design choice aims to avoid redundant computations. 
-    Once the pass times for a satellite are calculated, they are reused in the ground station to prevent unnecessary recalculation.
-'''
 import threading
 
 import numpy as np
@@ -24,6 +10,8 @@ from src.nodes.itopology import ITopology
 from src.simlogging.ilogger import ILogger
 from src.sim.imanager import EManagerReqType
 from src.simlogging.ilogger import ILogger, ELogType
+
+from src.models.models_cdn_provider.eviction_strategy.lrueviction import lruStrategy
 
 class ModelCDNProvider(IModel):
    
@@ -129,8 +117,11 @@ class ModelCDNProvider(IModel):
         self, 
         _ownernodeins: INode, 
         _loggerins: ILogger,
-        _minElevation: float,
-        _cache_capacity: int) -> None:
+        _cacheCapacity: int,
+        _cacheEvictionStrategy: str,
+        _handleRequestsStrategy: str,
+        _activeSchedulingStrategy: str
+        ) -> None:
         '''
         @desc
             Constructor of the class
@@ -145,21 +136,24 @@ class ModelCDNProvider(IModel):
         assert _loggerins is not None
 
         self.__ownernode = _ownernodeins
-        self.__logger = _loggerins
-        self.__minElevation = _minElevation
 
         self.__cache = OrderedDict()
-        self.__cache_size = 0
-        self.__cache_capacity = _cache_capacity
-        
-
-        
+        self.__cacheSize = 0 
+        self.__cacheCapacity= _cacheCapacity
+        self.__cacheEvictionStrategy: callable = self.__cacheEvictionStrategyDictionary[_cacheEvictionStrategy]
+        self.__handleRequestsStrategy: callable = self.__handleRequestsStrategyDictionary[_handleRequestsStrategy]
+        self.__activeSchedulingStrategy = _activeSchedulingStrategy
 
                             
     def Execute(self) -> None:
-        pass 
+        # Run active scheduling policies
+        self.__activeSchedulingStrategy()
 
-    def __check_cdn_cache(self, **kwargs):
+    def __handle_requests(self, **kwargs) -> list:
+        self.__handleRequestsStrategy(requests=kwargs['requests'])
+
+    # Local strategy functions
+    def __check_local_cache_only(self, **kwargs):
         requests :list = kwargs['requests']
         hits = []
         for request in requests:
@@ -168,20 +162,29 @@ class ModelCDNProvider(IModel):
                 self.__cache[request] = True
                 hits.append(True)
             else:
-                if self.__cache_size < self.__cache_capacity:
-                    self.__cache_size += 1
+                if self.__cacheSize < self.__cacheCapacity:
+                    self.__cacheSize += 1
                 else:
-                    self.__cache.popitem(last=False)
+                    # We need an eviction
+                    self.__cacheEvictionStrategy(cache=self.__cache)
                 self.__cache[request] = True
                 hits.append(False)
 
         return hits 
     
     __apiHandlerDictionary = {
-        "check_cdn_cache": __check_cdn_cache
+        "handle_requests": __handle_requests
     }
-        
-                    
+
+    __cacheEvictionStrategyDictionary = {
+        'LRU': lruStrategy
+    }
+
+    __handleRequestsStrategyDictionary = {
+        "check_local_cache_only": __check_local_cache_only
+    }
+
+    
 def init_ModelCDNProvider(
                     _ownernodeins: INode, 
                     _loggerins: ILogger, 
@@ -204,7 +207,21 @@ def init_ModelCDNProvider(
     assert _ownernodeins is not None
     assert _loggerins is not None
     
-    if "min_elevation" not in _modelArgs:
-        raise Exception("[ModelFovTimeBased Error]: The model arguments should contain the min_elevation parameter.")
+    if "cache_size" not in _modelArgs:
+        raise Exception("[ModelCDNProvider Error]: The model arguments should contain the cache_size parameter.") 
+
+    if "cache_eviction_strategy" not in _modelArgs:
+        raise Exception("[ModelCDNProvider Error]: The model arguments should contain the cache_eviction_strategy parameter.") 
+
+    if "handle_requests_strategy" not in _modelArgs:
+        raise Exception("[ModelCDNProvider Error]: The model arguments should contain the handle_requests_strategy parameter.") 
+
+    if "active_scheduling_strategy" not in _modelArgs:
+        raise Exception("[ModelCDNProvider Error]: The model arguments should contain the active_scheduling_stratey parameter.") 
     
-    return ModelCDNProvider(_ownernodeins, _loggerins, _modelArgs.min_elevation, _modelArgs.cache_capacity)
+    return ModelCDNProvider(_ownernodeins, 
+                            _loggerins, 
+                            _modelArgs.cache_size, 
+                            _modelArgs.cache_eviction_strategy, 
+                            _modelArgs.handle_requests_strategy, 
+                            _modelArgs.active_scheduling_strategy)
