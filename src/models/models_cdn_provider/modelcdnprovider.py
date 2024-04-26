@@ -12,6 +12,7 @@ from src.sim.imanager import EManagerReqType
 from src.simlogging.ilogger import ILogger, ELogType
 
 from src.models.models_cdn_provider.eviction_strategy.lrueviction import lruStrategy
+from src.utils import Location
 
 class ModelCDNProvider(IModel):
    
@@ -168,6 +169,8 @@ class ModelCDNProvider(IModel):
         requests :list = kwargs['requests']
         hits = []
         missed_but_in_sky = []
+        missed_but_in_sky_dist = []
+
         for request in requests:
             if request in self.__cache:
                 self.__cache.pop(request)
@@ -175,22 +178,31 @@ class ModelCDNProvider(IModel):
                 hits.append(True)
             else:
                 if request not in self.__myTopology.global_cache:
-                    self.__myTopology.global_cache[request] = 1
+                    self.__myTopology.global_cache[request] = [self.__ownernode.nodeID] 
                 else:
-                    if self.__myTopology.global_cache[request] > 0:
+                    if len(self.__myTopology.global_cache[request]) > 0:
                         missed_but_in_sky.append(request)
-                    self.__myTopology.global_cache[request] += 1
+                        # Compute the closest available resource satellite
+                        dist = []
+                        for remote_source in self.__myTopology.global_cache[request]:
+                            remote_source: INode = self.__myTopology.get_Node(remote_source)
+                            dist.append(self.__ownernode
+                                        .get_Position(self.__ownernode.timestamp)
+                                        .get_distance(remote_source.get_Position(remote_source.timestamp)))
+                        missed_but_in_sky_dist.append(np.min(dist))
+
+                    self.__myTopology.global_cache[request].append(self.__ownernode.nodeID)
                 if self.__cacheSize < self.__cacheCapacity:
                     self.__cacheSize += 1
                 else:
                     # We need an eviction
                     poped = self.__cacheEvictionStrategy(cache=self.__cache)[0]
-                    self.__myTopology.global_cache[poped] -= 1
+                    self.__myTopology.global_cache[poped].remove(self.__ownernode.nodeID)
                 self.__cache[request] = True
                 hits.append(False)
     
         if len(missed_but_in_sky) > 0:
-            self.__logger.write_Log(f'[Missed but available]{len(missed_but_in_sky)},{missed_but_in_sky}', ELogType.LOGALL, self.__ownernode.timestamp, self.iName)
+            self.__logger.write_Log(f'[Missed but available]{len(missed_but_in_sky)},{missed_but_in_sky},{missed_but_in_sky_dist}', ELogType.LOGALL, self.__ownernode.timestamp, self.iName)
         return hits 
     
     def __no_op(self, **kwargs):
