@@ -29,7 +29,6 @@ def get_satellite_string(node_id, tle_line_1, tle_line_2):
                         },
                         {
                             "iname": "ModelCDNProvider",
-                            "access_pattern_file": "/home/xinzez2/cdn/dataset/popular_video_113/patterns/AE",
                             "cache_size": 15,
                             "cache_eviction_strategy": "LRU",
                             "handle_requests_strategy": "check_local_cache_only",
@@ -45,7 +44,7 @@ def get_satellite_string(node_id, tle_line_1, tle_line_2):
                 
     return string
 
-def get_groundstation_string(node_id, gs_lat, gs_lon):
+def get_groundstation_string(node_id, gs_lat, gs_lon, pattern_path):
     string = """
                 {
                     "type": "GS",
@@ -59,7 +58,7 @@ def get_groundstation_string(node_id, gs_lat, gs_lon):
                     "models":[
                         {
                             "iname": "ModelCDNUser",
-                            "access_pattern_file": "/home/xinzez2/cdn/dataset/popular_video_113/patterns/AE",
+                            "access_pattern_file": "%s",
                             "access_generation_function": "generate_by_distribution",
                             "scheduling_strategy_function": "schdeule_by_largest_elevation"
                         },
@@ -68,7 +67,7 @@ def get_groundstation_string(node_id, gs_lat, gs_lon):
                             "min_elevation": 25 
                         }
                     ]
-                }""" % (node_id, gs_lat, gs_lon)
+                }""" % (node_id, gs_lat, gs_lon, pattern_path)
     return string
 
 def get_iot_string(node_id, iot_lat, iot_lon, iot_lambda, iot_data_size):
@@ -126,8 +125,8 @@ def get_iot_string(node_id, iot_lat, iot_lon, iot_lambda, iot_data_size):
 
 if __name__ == "__main__":
     ##Usage: python3 create_iot_config.py tle_file gs_file iot_file start_time end_time delta output_file
-    if len(sys.argv) != 8:
-        print("Usage: python3 create_iot_config.py tle_file gs_file iot_file start_time end_time delta output_file")
+    if len(sys.argv) != 9:
+        print("Usage: python3 create_iot_config.py tle_file gs_file iot_file start_time end_time delta output_file log_dir")
         sys.exit(1)
         
     tle_file = sys.argv[1]
@@ -138,6 +137,7 @@ if __name__ == "__main__":
     delta = sys.argv[6]
     
     output_file = open(sys.argv[7], "w+")
+    log_dir = sys.argv[8]
     
     base_str = """
 {
@@ -165,14 +165,18 @@ if __name__ == "__main__":
             node_id += 1
             
     #add groundstations
-
+    loc_id = 0
+    file_path = []
+    for dirpath,_,filenames in os.walk('/home/xinzez2/cdn/dataset/popular_video_113/patterns'):
+        for f in filenames:
+            file_path.append(os.path.abspath(os.path.join(dirpath, f)))
     with open(gs_file, "r") as f:
         for line in f:
             gs_lat = float(line.split(",")[0])
             gs_lon = float(line.split(",")[1])
-            output_file.write(get_groundstation_string(node_id, gs_lat, gs_lon))
+            output_file.write(get_groundstation_string(node_id, gs_lat, gs_lon, file_path[loc_id]))
             output_file.write(",\n")
-            
+            loc_id += 1
             node_id += 1
             
     # # add iot
@@ -207,11 +211,11 @@ if __name__ == "__main__":
         "simlogsetup":
         {
             "loghandler": "LoggerFileChunkwise",
-            "logfolder": "exampleLogs",
+            "logfolder": "%s",
             "logchunksize": 1000000
         }
 }
-    """ % (start_time, end_time, delta)
+    """ % (start_time, end_time, delta, log_dir)
     
     output_file.write(end_str)
     output_file.close()
