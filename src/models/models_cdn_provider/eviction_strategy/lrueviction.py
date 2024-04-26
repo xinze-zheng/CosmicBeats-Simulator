@@ -1,2 +1,2 @@
 def lruStrategy(**kwargs):
-    kwargs["cache"].popitem(last=False)
+    return kwargs["cache"].popitem(last=False)

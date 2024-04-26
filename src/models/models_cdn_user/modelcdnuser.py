@@ -137,11 +137,12 @@ class ModelCDNUser(IModel):
         # Load access file into a dictionary
         with open(self.__patternPath, 'r') as f:
             self.__patternDict = json.load(f)
-        self.__patternPath
 
         # Map strategy functions
         self.__accessGenerationFunction: function = self.__accessGenerationFunctionDictionary[_accessGenerationFunction]
         self.__schedulingStrategyFunction: function = self.__schedulingStrategyFunctionDictionary[_schedulingStrategyFunction]
+
+        self.__logger.write_Log(f"Pattern file:{_patternPath}", ELogType.LOGINFO, self.__ownernode.timestamp, self.iName)
         
 
     def Execute(self) -> None:

@@ -19,6 +19,7 @@ class Topology(ITopology):
     __nodes: 'list[INode]'
     __id: int
     __name: str
+    __global_cache: dict
 
     @property
     def id(self) -> int:
@@ -29,6 +30,10 @@ class Topology(ITopology):
             ID of the topology. Each topology should have an unique ID
         '''
         return self.__id
+    
+    @property
+    def global_cache(self) -> dict:
+        return self.__global_cache
 
     @property
     def name(self) -> str:
@@ -112,6 +117,7 @@ class Topology(ITopology):
         self.__id = _id
         self.__nodes = []
         self.__nodeIDToNodeMap = {}
+        self.__global_cache = {}
     
     def __str__(self) -> str:
         '''

@@ -105,11 +105,11 @@ class ModelCDNProvider(IModel):
         '''
         _ret = None
 
-        try:
-            _ret = self.__apiHandlerDictionary[_apiName](self, **_kwargs)
-        except Exception as e:
-            print(f"[ModelFoVTimeBased]: An unhandled API request has been received by {self.__ownernode.nodeID}: ", e)
-        
+        # try:
+        #     _ret = self.__apiHandlerDictionary[_apiName](self, **_kwargs)
+        # except Exception as e:
+        #     print(f"[ModelCDNProvider]: An unhandled API request has been received by {self.__ownernode.nodeID}: ", e)
+        _ret = self.__apiHandlerDictionary[_apiName](self, **_kwargs) 
         return _ret
     
 
@@ -145,6 +145,7 @@ class ModelCDNProvider(IModel):
         self.__handleRequestsStrategy: callable = self.__handleRequestsStrategyDictionary[_handleRequestsStrategy]
         self.__activeSchedulingStrategy: callable = self.__activeSchedulingStrategyDictionary[_activeSchedulingStrategy]
 
+        self.__myTopology:ITopology = None
                             
     def Execute(self) -> None:
         # Run active scheduling policies
@@ -155,21 +156,41 @@ class ModelCDNProvider(IModel):
 
     # Local strategy functions
     def __check_local_cache_only(self, **kwargs):
+        if self.__myTopology == None:
+            _topologyID = self.__ownernode.topologyID
+            _topologies = self.__ownernode.managerInstance.req_Manager(EManagerReqType.GET_TOPOLOGIES)
+            
+            
+            for _topology in _topologies:
+                if _topology.id == _topologyID:
+                    self.__myTopology = _topology
+                    break
         requests :list = kwargs['requests']
         hits = []
+        missed_but_in_sky = []
         for request in requests:
             if request in self.__cache:
                 self.__cache.pop(request)
                 self.__cache[request] = True
                 hits.append(True)
             else:
+                if request not in self.__myTopology.global_cache:
+                    self.__myTopology.global_cache[request] = 1
+                else:
+                    if self.__myTopology.global_cache[request] > 0:
+                        missed_but_in_sky.append(request)
+                    self.__myTopology.global_cache[request] += 1
                 if self.__cacheSize < self.__cacheCapacity:
                     self.__cacheSize += 1
                 else:
                     # We need an eviction
-                    self.__cacheEvictionStrategy(cache=self.__cache)
+                    poped = self.__cacheEvictionStrategy(cache=self.__cache)[0]
+                    self.__myTopology.global_cache[poped] -= 1
                 self.__cache[request] = True
                 hits.append(False)
+    
+        if len(missed_but_in_sky) > 0:
+            self.__logger.write_Log(f'[Missed but available]{len(missed_but_in_sky)},{missed_but_in_sky}', ELogType.LOGALL, self.__ownernode.timestamp, self.iName)
         return hits 
     
     def __no_op(self, **kwargs):
