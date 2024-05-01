@@ -147,7 +147,7 @@ class ModelCDNUser(IModel):
 
     def Execute(self) -> None:
         # Generate some accesses
-        requests = self.__accessGenerationFunction(self.__patternDict, self.__accessToGen)
+        requests = self.__accessGenerationFunction(pattern = self.__patternDict, numToGen = self.__accessToGen, probOneHitter=0.2)
         # Schedule one satellite
         targetSatellite: INode = self.__schedulingStrategyFunction(self.__ownernode, self.__ownernode.managerInstance.req_Manager(EManagerReqType.GET_TOPOLOGIES))
         if targetSatellite is None:
