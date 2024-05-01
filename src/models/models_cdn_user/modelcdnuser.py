@@ -114,7 +114,8 @@ class ModelCDNUser(IModel):
         _patternPath: str,
         _accessGenerationFunction: str,
         _schedulingStrategyFunction: str,
-        _accessToGen: int
+        _accessToGen: int,
+        _satellitesToSchedule: int
         ) -> None:
         '''
         @desc
@@ -133,6 +134,7 @@ class ModelCDNUser(IModel):
         self.__logger = _loggerins
         self.__patternPath = _patternPath
         self.__accessToGen = _accessToGen
+        self.__satellitesToSchedule = _satellitesToSchedule
 
         # Load access file into a dictionary
         with open(self.__patternPath, 'r') as f:
@@ -147,16 +149,23 @@ class ModelCDNUser(IModel):
 
     def Execute(self) -> None:
         # Generate some accesses
-        requests = self.__accessGenerationFunction(pattern = self.__patternDict, numToGen = self.__accessToGen, probOneHitter=0.2)
+        total_requests = self.__accessGenerationFunction(pattern = self.__patternDict, numToGen = self.__accessToGen, probOneHitter=0.2)
         # Schedule one satellite
-        targetSatellite: INode = self.__schedulingStrategyFunction(self.__ownernode, self.__ownernode.managerInstance.req_Manager(EManagerReqType.GET_TOPOLOGIES))
-        if targetSatellite is None:
+        targetSatellites: list = self.__schedulingStrategyFunction(self.__ownernode, 
+                                                                   self.__ownernode.managerInstance.req_Manager(EManagerReqType.GET_TOPOLOGIES),
+                                                                   self.__satellitesToSchedule)
+        if targetSatellites is None:
             self.__logger.write_Log(f"[Warning]: Out of service", ELogType.LOGINFO, self.__ownernode.timestamp)
             return
-        # Send requests to the scheduled satellite
-        cdn_cache_hit_results = targetSatellite.has_ModelWithName('ModelCDNProvider').call_APIs('handle_requests', requests=requests)
-        self.__logger.write_Log(f"[Requests]:{requests}", ELogType.LOGINFO, self.__ownernode.timestamp)
-        self.__logger.write_Log(f"[Hit rate]:{targetSatellite.nodeID},{len([0 for i in cdn_cache_hit_results if i])/len(cdn_cache_hit_results)}", ELogType.LOGINFO, self.__ownernode.timestamp)
+
+        # Send requests to the scheduled satellites
+        requestsPerSat = np.array_split(total_requests, len(targetSatellites))
+        for i in range(len(targetSatellites)):
+            targetSatellite = targetSatellites[i]
+            requests = requestsPerSat[i]
+            cdn_cache_hit_results = targetSatellite.has_ModelWithName('ModelCDNProvider').call_APIs('handle_requests', requests=requests)
+            self.__logger.write_Log(f"[Requests]:{requests}", ELogType.LOGINFO, self.__ownernode.timestamp)
+            self.__logger.write_Log(f"[Hit rate]:{targetSatellite.nodeID},{len([0 for i in cdn_cache_hit_results if i])/len(cdn_cache_hit_results)}", ELogType.LOGINFO, self.__ownernode.timestamp)
         
 
     def __send_cdn_requests(self):
@@ -232,10 +241,14 @@ def init_ModelCDNUser(
     numAccessToGen = 100
     if "num_access_to_gen" in _modelArgs:
         numAccessToGen = int(_modelArgs.num_access_to_gen)
-
+    
+    satellitesToSchedule = 1
+    if "satellites_to_schedule" in _modelArgs:
+        satellitesToSchedule = int(_modelArgs.satellites_to_schedule)
     return ModelCDNUser(_ownernodeins, 
                         _loggerins, 
                         _modelArgs.access_pattern_file, 
                         _modelArgs.access_generation_function, 
                         _modelArgs.scheduling_strategy_function,
-                        numAccessToGen)
+                        numAccessToGen,
+                        satellitesToSchedule)

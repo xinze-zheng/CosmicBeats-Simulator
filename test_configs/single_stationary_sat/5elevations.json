@@ -1,0 +1,231 @@
+{
+    "topologies":
+    [
+        {
+            "name": "Constellation1",
+            "id": 0,
+            "nodes":
+            [
+                {
+                    "type": "SAT",
+                    "iname": "SatelliteBasic",
+                    "nodeid": 1,
+                    "loglevel": "all",
+                    "tle_1": "1 44713U 19074A   24088.55365417  .00000451  00000+0  49168-4 0  9999",
+                    "tle_2": "2 44713  53.0537 139.0291 0001365  92.7423 267.3723 15.06396643241562",
+                    "additionalargs": "",
+                    "models":[
+                        {
+                            "iname": "ModelFixedOrbit",
+                            "sunlit": "True",
+                            "lat": 41.8781,
+                            "lon": -87.6298,
+                            "alt": "20000"
+                        },
+                        {
+                            "iname": "ModelCDNProvider",
+                            "access_pattern_file": "/home/xinzez2/cdn/dataset/popular_video_113/patterns/AE",
+                            "cache_size": 15,
+                            "cache_eviction_strategy": "LRU",
+                            "handle_requests_strategy": "check_local_cache_only",
+                            "active_scheduling_strategy": "no_op"
+                        },
+                        {
+                            "iname": "ModelHelperFoVWithElevation",
+                            "min_elevation": 25
+                        }
+                    ]
+                    
+                },
+                {
+                    "type": "SAT",
+                    "iname": "SatelliteBasic",
+                    "nodeid": 2,
+                    "loglevel": "all",
+                    "tle_1": "1 44713U 19074A   24088.55365417  .00000451  00000+0  49168-4 0  9999",
+                    "tle_2": "2 44713  53.0537 139.0291 0001365  92.7423 267.3723 15.06396643241562",
+                    "additionalargs": "",
+                    "models":[
+                        {
+                            "iname": "ModelFixedOrbit",
+                            "sunlit": "True",
+                            "lat": 41.5781,
+                            "lon": -87.6298,
+                            "alt": "20000"
+                        },
+                        {
+                            "iname": "ModelCDNProvider",
+                            "access_pattern_file": "/home/xinzez2/cdn/dataset/popular_video_113/patterns/AE",
+                            "cache_size": 1,
+                            "cache_eviction_strategy": "LRU",
+                            "handle_requests_strategy": "check_local_cache_only",
+                            "active_scheduling_strategy": "no_op"
+                        },
+                        {
+                            "iname": "ModelHelperFoVWithElevation",
+                            "min_elevation": 25
+                        }
+                    ]
+                    
+                },
+                {
+                    "type": "SAT",
+                    "iname": "SatelliteBasic",
+                    "nodeid": 5,
+                    "loglevel": "all",
+                    "tle_1": "1 44713U 19074A   24088.55365417  .00000451  00000+0  49168-4 0  9999",
+                    "tle_2": "2 44713  53.0537 139.0291 0001365  92.7423 267.3723 15.06396643241562",
+                    "additionalargs": "",
+                    "models":[
+                        {
+                            "iname": "ModelFixedOrbit",
+                            "sunlit": "True",
+                            "lat": 41.6781,
+                            "lon": -87.6298,
+                            "alt": "20000"
+                        },
+                        {
+                            "iname": "ModelCDNProvider",
+                            "access_pattern_file": "/home/xinzez2/cdn/dataset/popular_video_113/patterns/AE",
+                            "cache_size": 1,
+                            "cache_eviction_strategy": "LRU",
+                            "handle_requests_strategy": "check_local_cache_only",
+                            "active_scheduling_strategy": "no_op"
+                        },
+                        {
+                            "iname": "ModelHelperFoVWithElevation",
+                            "min_elevation": 25
+                        }
+                    ]  
+                },
+                {
+                    "type": "SAT",
+                    "iname": "SatelliteBasic",
+                    "nodeid": 4,
+                    "loglevel": "all",
+                    "tle_1": "1 44713U 19074A   24088.55365417  .00000451  00000+0  49168-4 0  9999",
+                    "tle_2": "2 44713  53.0537 139.0291 0001365  92.7423 267.3723 15.06396643241562",
+                    "additionalargs": "",
+                    "models":[
+                        {
+                            "iname": "ModelFixedOrbit",
+                            "sunlit": "True",
+                            "lat": 41.1781,
+                            "lon": -87.6298,
+                            "alt": "20000"
+                        },
+                        {
+                            "iname": "ModelCDNProvider",
+                            "access_pattern_file": "/home/xinzez2/cdn/dataset/popular_video_113/patterns/AE",
+                            "cache_size": 1,
+                            "cache_eviction_strategy": "LRU",
+                            "handle_requests_strategy": "check_local_cache_only",
+                            "active_scheduling_strategy": "no_op"
+                        },
+                        {
+                            "iname": "ModelHelperFoVWithElevation",
+                            "min_elevation": 25
+                        }
+                    ]
+                    
+                },
+                {
+                    "type": "SAT",
+                    "iname": "SatelliteBasic",
+                    "nodeid": 6,
+                    "loglevel": "all",
+                    "tle_1": "1 44713U 19074A   24088.55365417  .00000451  00000+0  49168-4 0  9999",
+                    "tle_2": "2 44713  53.0537 139.0291 0001365  92.7423 267.3723 15.06396643241562",
+                    "additionalargs": "",
+                    "models":[
+                        {
+                            "iname": "ModelFixedOrbit",
+                            "sunlit": "True",
+                            "lat": 41.0781,
+                            "lon": -87.6298,
+                            "alt": "20000"
+                        },
+                        {
+                            "iname": "ModelCDNProvider",
+                            "access_pattern_file": "/home/xinzez2/cdn/dataset/popular_video_113/patterns/AE",
+                            "cache_size": 1,
+                            "cache_eviction_strategy": "LRU",
+                            "handle_requests_strategy": "check_local_cache_only",
+                            "active_scheduling_strategy": "no_op"
+                        },
+                        {
+                            "iname": "ModelHelperFoVWithElevation",
+                            "min_elevation": 25
+                        }
+                    ]
+                    
+                },
+                {
+                    "type": "SAT",
+                    "iname": "SatelliteBasic",
+                    "nodeid": 7,
+                    "loglevel": "all",
+                    "tle_1": "1 44713U 19074A   24088.55365417  .00000451  00000+0  49168-4 0  9999",
+                    "tle_2": "2 44713  53.0537 139.0291 0001365  92.7423 267.3723 15.06396643241562",
+                    "additionalargs": "",
+                    "models":[
+                        {
+                            "iname": "ModelFixedOrbit",
+                            "sunlit": "True",
+                            "lat": 41.8781,
+                            "lon": -87.6298,
+                            "alt": "20000"
+                        },
+                        {
+                            "iname": "ModelCDNProvider",
+                            "access_pattern_file": "/home/xinzez2/cdn/dataset/popular_video_113/patterns/AE",
+                            "cache_size": 1,
+                            "cache_eviction_strategy": "LRU",
+                            "handle_requests_strategy": "check_local_cache_only",
+                            "active_scheduling_strategy": "no_op"
+                        },
+                        {
+                            "iname": "ModelHelperFoVWithElevation",
+                            "min_elevation": 25
+                        }
+                    ]
+                    
+                },
+                {
+                    
+                    "type": "GS",
+                    "iname": "GSBasic",
+                    "nodeid": 3,
+                    "loglevel": "all",
+                    "latitude": 41.8781,
+                    "longitude": -87.6298,
+                    "elevation": 0.0,
+                    "additionalargs": "",
+                    "models":[
+                        {
+                            "iname": "ModelCDNUser",
+                            "access_pattern_file": "/home/xinzez2/cdn/dataset/popular_video_113/patterns/AE",
+                            "access_generation_function": "generate_by_distribution",
+                            "scheduling_strategy_function": "schdeule_by_largest_elevation"
+                        },
+                        {
+                            "iname": "ModelHelperFoVWithElevation",
+                            "min_elevation": 25 
+                        }
+                    ]
+                }
+            ]
+        }
+    ],
+    "simtime":
+    {
+        "starttime": "2024-04-01 12:00:00",
+        "endtime": "2024-04-01 12:03:00",
+        "delta": 1 
+    },
+    "simlogsetup":
+    {
+        "loghandler": "LoggerCmd",
+        "logfolder": ""
+    }
+}

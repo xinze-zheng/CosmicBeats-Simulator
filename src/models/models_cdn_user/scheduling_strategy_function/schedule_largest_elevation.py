@@ -3,7 +3,7 @@ from src.nodes.inode import INode, ENodeType
 from src.nodes.itopology import ITopology
 from src.sim.imanager import EManagerReqType
 import numpy as np
-def schduleLargestElevation(node: INode, topology) -> INode:
+def schduleLargestElevation(node: INode, topology, num=1) -> list:
     _topologyID = node.topologyID
     _topologies = topology
     
@@ -18,4 +18,7 @@ def schduleLargestElevation(node: INode, topology) -> INode:
     if views is None or len(views) == 0:
         return None
     views = np.asanyarray(views)
-    return _myTopology.get_Node(views[np.argmax(views[:,1])][0])
+    top_idx = np.argsort(views, axis = 0)
+    top_idx = top_idx[:, 1][-min(num, len(views)):]
+    ret = [_myTopology.get_Node(int(views[top_idx[i]][0])) for i in range(len(top_idx))]
+    return ret 
