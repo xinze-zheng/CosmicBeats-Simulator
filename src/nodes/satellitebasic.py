@@ -358,7 +358,7 @@ class SatelliteBasic(INode):
             _stringIOObject.write(", ")
 
         return _stringIOObject.getvalue()
-
+    
 def init_SatelliteBasic(
         _nodeDetails, 
         _timeDetails, 

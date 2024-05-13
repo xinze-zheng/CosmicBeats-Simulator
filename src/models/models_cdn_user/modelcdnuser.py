@@ -149,7 +149,7 @@ class ModelCDNUser(IModel):
 
     def Execute(self) -> None:
         # Generate some accesses
-        total_requests = self.__accessGenerationFunction(pattern = self.__patternDict, numToGen = self.__accessToGen, probOneHitter=0.2)
+        total_requests = self.__accessGenerationFunction(pattern = self.__patternDict, numToGen = self.__accessToGen, probOneHitter=0.5)
         # Schedule one satellite
         targetSatellites: list = self.__schedulingStrategyFunction(self.__ownernode, 
                                                                    self.__ownernode.managerInstance.req_Manager(EManagerReqType.GET_TOPOLOGIES),

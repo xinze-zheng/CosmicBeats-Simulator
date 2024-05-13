@@ -71,7 +71,10 @@ class Orchestrator():
             assert _topologyConfig.name != ''
             assert _topologyConfig.id is not None
 
-            _topologyIns = Topology(_topologyConfig.name, _topologyConfig.id)
+            if hasattr(_topologyConfig, 'isl_topology'):
+                _topologyIns = Topology(_topologyConfig.name, _topologyConfig.id, _topologyConfig.isl_topology)
+            else:
+                _topologyIns = Topology(_topologyConfig.name, _topologyConfig.id, None)
             self.__topologies.append(_topologyIns)
 
             # Let's config the node as the user wants to do

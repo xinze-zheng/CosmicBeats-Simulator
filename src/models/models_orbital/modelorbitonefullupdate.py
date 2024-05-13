@@ -13,7 +13,8 @@ Created on: 21 Dec 2022
 from src.models.imodel import IModel, EModelTag
 from src.nodes.inode import INode
 from src.simlogging.ilogger import ELogType, ILogger
-from skyfield.api import load, EarthSatellite
+from skyfield.api import load, wgs84, EarthSatellite
+from skyfield.positionlib import position_of_radec
 from src.utils import Location, Time
 
 class ModelOrbitOneFullUpdate(IModel):
@@ -168,7 +169,6 @@ class ModelOrbitOneFullUpdate(IModel):
                 self.__earthsatellite = EarthSatellite(_tlelines[1], _tlelines[2])
             else:
                 raise Exception("[Simulator Exception] Invalid number of TLE lines in " + self.iName)
-        
             #initiate the time scale for skyfield operation 
             self.__skyfieldts = load.timescale()
 
@@ -182,7 +182,8 @@ class ModelOrbitOneFullUpdate(IModel):
                 _gcrsLocation = self.__earthsatellite.at(_utcTime)
                 _itrs = _gcrsLocation.itrf_xyz().m
                 _newLocation = Location(_itrs[0], _itrs[1], _itrs[2])
-
+                # ra, dec, _ = _gcrsLocation.radec()
+                # print(_newLocation.to_lat_long())
                 self.__logger.write_Log(
                                     f"Location of node {self.__ownernode.nodeID} is: {_newLocation.to_str()}",
                                     ELogType.LOGINFO, 

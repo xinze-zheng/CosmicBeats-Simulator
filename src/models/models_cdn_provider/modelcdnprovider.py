@@ -170,6 +170,8 @@ class ModelCDNProvider(IModel):
         hits = []
         missed_but_in_sky = []
         missed_but_in_sky_dist = []
+        missed_but_in_sky_isl_hop = []
+        remote_hit_shortest_hop = []
 
         for request in requests:
             if request in self.__cache:
@@ -186,10 +188,14 @@ class ModelCDNProvider(IModel):
                         dist = []
                         for remote_source in self.__myTopology.global_cache[request]:
                             remote_source: INode = self.__myTopology.get_Node(remote_source)
-                            dist.append(self.__ownernode
+                            dist.append((self.__ownernode
                                         .get_Position(self.__ownernode.timestamp)
-                                        .get_distance(remote_source.get_Position(remote_source.timestamp)))
-                        missed_but_in_sky_dist.append(np.min(dist))
+                                        .get_distance(remote_source.get_Position(remote_source.timestamp)), remote_source.nodeID))
+                        dist = np.array(dist)
+                        min_idx = np.argmin(dist[:, 0]) 
+                        missed_but_in_sky_dist.append(dist[min_idx][0])
+                        missed_but_in_sky_isl_hop.append(self.__myTopology.get_ISL_dist(self.__ownernode.nodeID, remote_source.nodeID))
+                        remote_hit_shortest_hop.append(self.__myTopology.get_shortest_replica(self.__ownernode.nodeID, request))
 
                     self.__myTopology.global_cache[request].append(self.__ownernode.nodeID)
                 if self.__cacheSize < self.__cacheCapacity:
@@ -202,7 +208,7 @@ class ModelCDNProvider(IModel):
                 hits.append(False)
     
         if len(missed_but_in_sky) > 0:
-            self.__logger.write_Log(f'[Missed but available]{len(missed_but_in_sky)},{missed_but_in_sky},{missed_but_in_sky_dist}', ELogType.LOGALL, self.__ownernode.timestamp, self.iName)
+            self.__logger.write_Log(f'[Missed but available]{len(missed_but_in_sky)},{missed_but_in_sky},{missed_but_in_sky_isl_hop},{missed_but_in_sky_dist},{remote_hit_shortest_hop}', ELogType.LOGALL, self.__ownernode.timestamp, self.iName)
         return hits 
     
     def __no_op(self, **kwargs):

@@ -12,6 +12,9 @@ from io import StringIO
 from src.nodes.inode import ENodeType, INode
 from src.nodes.itopology import ITopology
 
+import json
+from collections import deque
+
 class Topology(ITopology):
     '''
     Topology class that holds the nodes. It inherits the ITopology interface.
@@ -20,6 +23,9 @@ class Topology(ITopology):
     __id: int
     __name: str
     __global_cache: dict
+    # ISL topology
+    __isl_graph: dict
+    __isl_dist: dict
 
     @property
     def id(self) -> int:
@@ -34,6 +40,10 @@ class Topology(ITopology):
     @property
     def global_cache(self) -> dict:
         return self.__global_cache
+    
+    @property
+    def isl_graph(self) -> dict:
+        return self.__isl_graph
 
     @property
     def name(self) -> str:
@@ -91,6 +101,39 @@ class Topology(ITopology):
                 _ret.append(_node)
         return _ret
     
+    def get_ISL_dist(self, nodeFrom: int, nodeTo: int):
+        # BFS for shortest path
+        if nodeFrom in self.__isl_dist:
+            return self.__isl_dist[nodeFrom][nodeTo]
+
+        visited = set()
+        queue = deque()
+        queue.append([str(nodeFrom), 0])
+        visited.add(str(nodeFrom))
+        self.__isl_dist[nodeFrom] = {}
+        # print(queue)
+        while queue:
+            current = queue.popleft()
+            # print(current)
+            dist = current[1]
+            current_node = current[0]
+            self.__isl_dist[nodeFrom][int(current_node)] = int(dist)
+            for neighbor in self.__isl_graph[current_node]:
+                if neighbor not in visited:
+                    visited.add(neighbor)
+                    queue.append([neighbor, dist + 1])
+        return self.__isl_dist[nodeFrom][nodeTo]
+
+    def get_shortest_replica(self, nodeFrom: int, request: str):
+        if nodeFrom not in self.__isl_dist:
+            self.get_ISL_dist(nodeFrom, nodeFrom)
+        min_hop = 100000
+        for remote_replica in self.__global_cache[request]:
+            hop = self.__isl_dist[nodeFrom][int(remote_replica)]
+            min_hop = min(min_hop, hop)
+        return min_hop
+
+        
     @property
     def nodes(self) -> 'list[INode]':
         '''
@@ -118,7 +161,32 @@ class Topology(ITopology):
         self.__nodes = []
         self.__nodeIDToNodeMap = {}
         self.__global_cache = {}
-    
+        self.__isl_dist = {}
+
+    def __init__(
+            self, 
+            _name: str, 
+            _id: int,
+            _isl_topology: str) -> None:
+        '''
+        @desc
+            Constructor of the topology
+        @param[in]  _name
+            Name of the topology
+        @param[in]  _id
+            ID of the topology
+        '''
+        self.__name = _name
+        self.__id = _id
+        self.__nodes = []
+        self.__nodeIDToNodeMap = {}
+        self.__global_cache = {}
+        self.__isl_dist = {}
+
+        if _isl_topology is not None: 
+            with open(_isl_topology, 'r') as f:
+                self.__isl_graph = json.load(f)
+
     def __str__(self) -> str:
         '''
         @desc
