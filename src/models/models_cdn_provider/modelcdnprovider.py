@@ -10,6 +10,7 @@ from src.nodes.itopology import ITopology
 from src.simlogging.ilogger import ILogger
 from src.sim.imanager import EManagerReqType
 from src.simlogging.ilogger import ILogger, ELogType
+from src.nodes.topology import Topology
 
 from src.models.models_cdn_provider.eviction_strategy.lrueviction import lruStrategy
 from src.utils import Location
@@ -146,6 +147,8 @@ class ModelCDNProvider(IModel):
         self.__handleRequestsStrategy: callable = self.__handleRequestsStrategyDictionary[_handleRequestsStrategy]
         self.__activeSchedulingStrategy: callable = self.__activeSchedulingStrategyDictionary[_activeSchedulingStrategy]
 
+        self.__prev_cache = OrderedDict()
+        self.__prev_cache_time = self.__ownernode.timestamp
         self.__myTopology:ITopology = None
                             
     def Execute(self) -> None:
@@ -173,31 +176,54 @@ class ModelCDNProvider(IModel):
         missed_but_in_sky_isl_hop = []
         remote_hit_shortest_hop = []
 
+        downlink_cnt = 0 
+        uplink_cnt = 0
+        isl_cnt = [0, 0, 0, 0]
+
         for request in requests:
             if request in self.__cache:
+                # This is a cache hit
                 self.__cache.pop(request)
                 self.__cache[request] = True
                 hits.append(True)
-            else:
-                if request not in self.__myTopology.global_cache:
-                    self.__myTopology.global_cache[request] = [self.__ownernode.nodeID] 
-                else:
-                    if len(self.__myTopology.global_cache[request]) > 0:
-                        missed_but_in_sky.append(request)
-                        # Compute the closest available resource satellite
-                        dist = []
-                        for remote_source in self.__myTopology.global_cache[request]:
-                            remote_source: INode = self.__myTopology.get_Node(remote_source)
-                            dist.append((self.__ownernode
-                                        .get_Position(self.__ownernode.timestamp)
-                                        .get_distance(remote_source.get_Position(remote_source.timestamp)), remote_source.nodeID))
-                        dist = np.array(dist)
-                        min_idx = np.argmin(dist[:, 0]) 
-                        missed_but_in_sky_dist.append(dist[min_idx][0])
-                        missed_but_in_sky_isl_hop.append(self.__myTopology.get_ISL_dist(self.__ownernode.nodeID, remote_source.nodeID))
-                        remote_hit_shortest_hop.append(self.__myTopology.get_shortest_replica(self.__ownernode.nodeID, request))
 
+            else:
+                if request not in self.__myTopology.global_cache or len(self.__myTopology.global_cache[request]) <= 0:
+                    # This is a remote miss
+                    self.__myTopology.global_cache[request] = [self.__ownernode.nodeID] 
+
+                    # Record the uplink
+                    uplink_cnt += 1
+                else:
+                    # We have a remote hit
+                    missed_but_in_sky.append(request)
+                    # Compute the closest available resource satellite
+                    dist = []
+                    for remote_source in self.__myTopology.global_cache[request]:
+                        remote_source: INode = self.__myTopology.get_Node(remote_source)
+                        dist.append((self.__ownernode
+                                    .get_Position(self.__ownernode.timestamp)
+                                    .get_distance(remote_source.get_Position(remote_source.timestamp)), remote_source.nodeID))
+                    dist = np.array(dist)
+                    min_idx = np.argmin(dist[:, 0]) 
+                    missed_but_in_sky_dist.append(dist[min_idx][0])
+                    missed_but_in_sky_isl_hop.append(self.__myTopology.get_ISL_dist(self.__ownernode.nodeID, remote_source.nodeID))
+                    shortest_hop = self.__myTopology.get_shortest_replica(self.__ownernode.nodeID, request)
+                    remote_hit_shortest_hop.append(shortest_hop)
+                    if shortest_hop <= 1:
+                        # We activate ISL to fetch from neighbor, break tie in order of next, prev, left, right 
+                        neighbors = self.__myTopology.get_ISL_neighbor(self.__ownernode.nodeID) 
+                        for i in range(4): # Magic number of simplicity
+                            hop = self.__myTopology.get_ISL_dist(self.__ownernode.nodeID, int(neighbors[i]))
+                            if hop == 1:
+                                isl_cnt[i] += 1
+                                break
+                    else:
+                        # We choose to fetch from ground
+                        uplink_cnt += 1
+                    # Save the content locally anyway
                     self.__myTopology.global_cache[request].append(self.__ownernode.nodeID)
+
                 if self.__cacheSize < self.__cacheCapacity:
                     self.__cacheSize += 1
                 else:
@@ -206,9 +232,18 @@ class ModelCDNProvider(IModel):
                     self.__myTopology.global_cache[poped].remove(self.__ownernode.nodeID)
                 self.__cache[request] = True
                 hits.append(False)
+            # Add downlink for each request
+            downlink_cnt += 1
+        # Some sanity checks
+        assert len(requests) == downlink_cnt
+        assert len([i for i in hits if i]) == downlink_cnt - uplink_cnt - isl_cnt[0] - isl_cnt[1] - isl_cnt[2] - isl_cnt[3], (len([i for i in hits if i]), downlink_cnt - uplink_cnt - isl_cnt[0] - isl_cnt[1] - isl_cnt[2] - isl_cnt[3])
+        self.__logger.write_Log(f'[Traffic Monitor]:{[downlink_cnt, uplink_cnt] + isl_cnt}', ELogType.LOGALL, self.__ownernode.timestamp, self.iName) 
     
         if len(missed_but_in_sky) > 0:
             self.__logger.write_Log(f'[Missed but available]{len(missed_but_in_sky)},{missed_but_in_sky},{missed_but_in_sky_isl_hop},{missed_but_in_sky_dist},{remote_hit_shortest_hop}', ELogType.LOGALL, self.__ownernode.timestamp, self.iName)
+        else:
+            self.__logger.write_Log("No remote hit", ELogType.LOGALL, self.__ownernode.timestamp, self.iName)
+        self.__logger.write_Log(f'[Cache content]{[x for x in self.__cache]}', ELogType.LOGALL, self.__ownernode.timestamp, self.iName)
         return hits 
     
     def __no_op(self, **kwargs):

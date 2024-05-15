@@ -27,6 +27,12 @@ class Topology(ITopology):
     __isl_graph: dict
     __isl_dist: dict
 
+    NEXT_ISL = 0
+    PREV_ISL = 1
+    LEFT_ISL = 2
+    RIGHT_ISL = 3
+    ALL_NEIGHBOR = 4
+
     @property
     def id(self) -> int:
         '''
@@ -132,6 +138,12 @@ class Topology(ITopology):
             hop = self.__isl_dist[nodeFrom][int(remote_replica)]
             min_hop = min(min_hop, hop)
         return min_hop
+    
+    def get_ISL_neighbor(self, node: int):
+        # Return in the form of [next, prev, left, right]
+        return self.__isl_graph[str(node)]
+
+
 
         
     @property
