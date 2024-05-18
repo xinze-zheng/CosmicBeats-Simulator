@@ -27,6 +27,11 @@ class ModelCDNProvider(IModel):
     __nodeToNode = {} #static variable to see if this pair of nodes has been calculated. Node id is the key and the value is a list of node ids
     __preloaded = False #static variable to see if the pass times have been preloaded
     __nodeToTimesLock = threading.Lock() #Lock for the static variable
+
+    @property
+    def cache(self) -> OrderedDict:
+        return self.__cache
+
     @property
     def iName(self) -> str:
         """
@@ -208,14 +213,13 @@ class ModelCDNProvider(IModel):
                     min_idx = np.argmin(dist[:, 0]) 
                     missed_but_in_sky_dist.append(dist[min_idx][0])
                     missed_but_in_sky_isl_hop.append(self.__myTopology.get_ISL_dist(self.__ownernode.nodeID, remote_source.nodeID))
-                    shortest_hop = self.__myTopology.get_shortest_replica(self.__ownernode.nodeID, request)
+                    shortest_hop, shortest_neighbor = self.__myTopology.get_shortest_replica(self.__ownernode.nodeID, request)
                     remote_hit_shortest_hop.append(shortest_hop)
                     if shortest_hop <= 1:
                         # We activate ISL to fetch from neighbor, break tie in order of next, prev, left, right 
                         neighbors = self.__myTopology.get_ISL_neighbor(self.__ownernode.nodeID) 
                         for i in range(4): # Magic number of simplicity
-                            hop = self.__myTopology.get_ISL_dist(self.__ownernode.nodeID, int(neighbors[i]))
-                            if hop == 1:
+                            if int(neighbors[i]) == shortest_neighbor:
                                 isl_cnt[i] += 1
                                 break
                     else:

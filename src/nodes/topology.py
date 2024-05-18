@@ -130,14 +130,19 @@ class Topology(ITopology):
                     queue.append([neighbor, dist + 1])
         return self.__isl_dist[nodeFrom][nodeTo]
 
-    def get_shortest_replica(self, nodeFrom: int, request: str):
+    def get_shortest_replica(self, nodeFrom: int, request: str) -> tuple:
+        # Return tuple of (min hop, min hop node id)
         if nodeFrom not in self.__isl_dist:
             self.get_ISL_dist(nodeFrom, nodeFrom)
         min_hop = 100000
+        closest_replicas = -1
         for remote_replica in self.__global_cache[request]:
             hop = self.__isl_dist[nodeFrom][int(remote_replica)]
-            min_hop = min(min_hop, hop)
-        return min_hop
+            if hop < min_hop:
+                min_hop = hop
+                closest_replicas = int(remote_replica)
+
+        return min_hop, closest_replicas
     
     def get_ISL_neighbor(self, node: int):
         # Return in the form of [next, prev, left, right]
