@@ -36,10 +36,11 @@ Created on: 31 Oct 2022
 from src.nodes.satellitebasic import init_SatelliteBasic
 from src.nodes.gsbasic import init_GSBasic
 from src.nodes.iotbasic import init_IoTBasic
-
+from src.nodes.trafficscheduler import init_TrafficScheduler
 
 nodeInitDictionary = {
     "SatelliteBasic" : init_SatelliteBasic,
     "GSBasic": init_GSBasic,
-    "IoTBasic": init_IoTBasic
+    "IoTBasic": init_IoTBasic,
+    "GlobalTrafficScheduler": init_TrafficScheduler 
     }

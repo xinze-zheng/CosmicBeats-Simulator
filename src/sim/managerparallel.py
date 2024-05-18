@@ -484,6 +484,7 @@ class ManagerParallel(IManager):
             This method is called to run the simulation.
         '''
         # To keep the nodes in sync, we ensure that the threads join at the end of each step.
+        traffic_scheduler = None
         while self.__currentStep < self.__numOfSteps:
             
             # Check if the simulation is to be paused. If it is, then we wait until the user resumes it
@@ -504,6 +505,9 @@ class ManagerParallel(IManager):
                     #Let's execute all the nodes in parallel
                     for _topology in self.__topologies:
                         for _node in _topology.nodes:
+                            if _node.nodeType == ENodeType.TRAFFIC_SCHEDULER:
+                                traffic_scheduler = _node
+                                continue
                             _result = executor.submit(_node.Execute)
                             _results.append(_result)
                     
@@ -514,7 +518,15 @@ class ManagerParallel(IManager):
             else:
                 for _topology in self.__topologies:
                     for _node in _topology.nodes:
+                        if _node.nodeType == ENodeType.TRAFFIC_SCHEDULER:
+                            traffic_scheduler = _node
+                            continue
                         _node.Execute()        
+
+            # Run traffice scheduler to send requests
+            assert traffic_scheduler is not None
+            traffic_scheduler.Execute()
+
             self.__currentStep += 1 
             
         #Just to be sure, let's raise the stopping condition - some nodes might be waiting for it

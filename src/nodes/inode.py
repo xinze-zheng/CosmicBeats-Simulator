@@ -23,6 +23,7 @@ class ENodeType(Enum):
     SAT = 0
     GS = 1
     IOTDEVICE = 2
+    TRAFFIC_SCHEDULER = 3
 
 class INode(ABC):
     """
