@@ -14,6 +14,7 @@ from src.nodes.itopology import ITopology
 
 import json
 from collections import deque
+import threading
 
 class Topology(ITopology):
     '''
@@ -161,24 +162,25 @@ class Topology(ITopology):
         '''
         return self.__nodes
     
-    def __init__(
-            self, 
-            _name: str, 
-            _id: int) -> None:
-        '''
-        @desc
-            Constructor of the topology
-        @param[in]  _name
-            Name of the topology
-        @param[in]  _id
-            ID of the topology
-        '''
-        self.__name = _name
-        self.__id = _id
-        self.__nodes = []
-        self.__nodeIDToNodeMap = {}
-        self.__global_cache = {}
-        self.__isl_dist = {}
+    # def __init__(
+    #         self, 
+    #         _name: str, 
+    #         _id: int) -> None:
+    #     '''
+    #     @desc
+    #         Constructor of the topology
+    #     @param[in]  _name
+    #         Name of the topology
+    #     @param[in]  _id
+    #         ID of the topology
+    #     '''
+    #     self.__name = _name
+    #     self.__id = _id
+    #     self.__nodes = []
+    #     self.__nodeIDToNodeMap = {}
+    #     self.__global_cache = {}
+    #     self.__isl_dist = {}
+        
 
     def __init__(
             self, 
@@ -199,6 +201,7 @@ class Topology(ITopology):
         self.__nodeIDToNodeMap = {}
         self.__global_cache = {}
         self.__isl_dist = {}
+        self.lock = threading.Lock()
 
         if _isl_topology is not None: 
             with open(_isl_topology, 'r') as f:

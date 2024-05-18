@@ -495,7 +495,7 @@ class ManagerParallel(IManager):
                 #Let's reset the stopping and resuming conditions
                 self.__resumingCondition.clear()
                     
-            if self.__currentStep % 60 == 0:
+            if self.__currentStep % 5 == 0:
                 print(f"[Running Sim]: Current step: {self.__currentStep}")
             
             if self.__numOfThreads > 1:
