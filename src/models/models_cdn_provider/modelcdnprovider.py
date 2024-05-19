@@ -153,8 +153,6 @@ class ModelCDNProvider(IModel):
         self.__activeSchedulingStrategy: callable = self.__activeSchedulingStrategyDictionary[_activeSchedulingStrategy]
         self.__lock = threading.Lock()
 
-        self.__prev_cache = OrderedDict()
-        self.__prev_cache_time = self.__ownernode.timestamp
         self.__myTopology:ITopology = None
                             
     def Execute(self) -> None:
@@ -162,7 +160,7 @@ class ModelCDNProvider(IModel):
         self.__activeSchedulingStrategy(self)
 
     def __handle_requests(self, **kwargs) -> list:
-        return self.__handleRequestsStrategy(self, requests=kwargs['requests'])
+        return self.__handleRequestsStrategy(self, **kwargs)
 
     # Local strategy functions
     def __check_local_cache_only(self, **kwargs):
@@ -254,12 +252,109 @@ class ModelCDNProvider(IModel):
         self.__logger.write_Log(f'[Cache content]{[x for x in self.__cache]}', ELogType.LOGALL, self.__ownernode.timestamp, self.iName)
         self.__lock.release()
         return hits 
+
+    def __check_k_hops(self, **kwargs):
+        self.__lock.acquire()
+        if self.__myTopology is None:
+            _topologyID = self.__ownernode.topologyID
+            _topologies = self.__ownernode.managerInstance.req_Manager(EManagerReqType.GET_TOPOLOGIES)
+            
+            
+            for _topology in _topologies:
+                if _topology.id == _topologyID:
+                    self.__myTopology = _topology
+                    break
+        requests :list = kwargs['requests']
+        hop_to_check = kwargs['hop_to_check']
+        hits = []
+        missed_but_in_sky = []
+        remote_hit_shortest_hop = []
+        self.__myTopology.lock.acquire()
+        ingress_traffic: dict = self.__myTopology.ingress_traffic
+        egress_traffic: dict = self.__myTopology.egress_traffic
+        for request in requests:
+            egress_traffic.setdefault(self.__ownernode.nodeID, [0, 0, 0, 0, 0, 0])
+            ingress_traffic.setdefault(self.__ownernode.nodeID, [0, 0, 0, 0, 0, 0]) 
+            if request in self.__cache:
+                # This is a cache hit
+                self.__cache.pop(request)
+                self.__cache[request] = True
+                hits.append(True)
+
+            else:
+                if request not in self.__myTopology.global_cache or len(self.__myTopology.global_cache[request]) <= 0:
+                    # This is a remote miss
+                    self.__myTopology.global_cache[request] = [self.__ownernode.nodeID] 
+
+                    # Record the uplink
+                    ingress_traffic[self.__ownernode.nodeID][1] += 1
+                else:
+                    # We have a remote hit
+                    missed_but_in_sky.append(request)
+                    # Compute the closest available resource satellite
+                    shortest_hop, shortest_neighbor = self.__myTopology.get_shortest_replica(self.__ownernode.nodeID, request)
+                    remote_hit_shortest_hop.append(shortest_hop)
+                    if shortest_hop <= hop_to_check:
+                        # We activate ISL to fetch from neighbor, break tie in order of next, prev, left, right 
+                        path = self.__myTopology.get_ISL_path(self.__ownernode.nodeID, shortest_neighbor)
+                        for i in range(1, len(path)):
+                            current_node = int(path[i][0])
+                            isl_direction = int(path[i][1])
+                            invsersed_isl_direction: int
+                            if isl_direction <= 1:
+                                invsersed_isl_direction = abs(isl_direction - 1) 
+                            else:
+                                invsersed_isl_direction = 2 if isl_direction == 3 else 3
+
+                            egress_traffic.setdefault(current_node, [0, 0, 0, 0, 0, 0]) 
+                            ingress_traffic.setdefault(current_node, [0, 0, 0, 0, 0, 0]) 
+                            ingress_traffic[int(path[i - 1][0])][isl_direction + 2] += 1
+                            egress_traffic[current_node][invsersed_isl_direction + 2] += 1
+
+                    else:
+                        # We choose to fetch from ground
+                        egress_traffic[self.__ownernode.nodeID][1] += 1
+                    # Save the content locally anyway
+                    self.__myTopology.global_cache[request].append(self.__ownernode.nodeID)
+
+                if self.__cacheSize < self.__cacheCapacity:
+                    self.__cacheSize += 1
+                else:
+                    # We need an eviction
+                    poped = self.__cacheEvictionStrategy(cache=self.__cache)[0]
+                    self.__myTopology.global_cache[poped].remove(self.__ownernode.nodeID)
+                self.__cache[request] = True
+                hits.append(False)
+            # Add downlink for each request
+            egress_traffic[self.__ownernode.nodeID][0] += 1
+        self.__myTopology.lock.release()
+        self.__lock.release()
+        return hits 
     
     def __no_op(self, **kwargs):
         pass
     
+    def __post_epoch_hook(self):
+        if self.__myTopology is None:
+            _topologyID = self.__ownernode.topologyID
+            _topologies = self.__ownernode.managerInstance.req_Manager(EManagerReqType.GET_TOPOLOGIES)
+            
+            
+            for _topology in _topologies:
+                if _topology.id == _topologyID:
+                    self.__myTopology = _topology
+                    break
+        my_node_id = self.__ownernode.nodeID
+        with self.__myTopology.lock:
+            if my_node_id in self.__myTopology.ingress_traffic: 
+                self.__logger.write_Log(f'[Traffic Monitor Ingress]:{self.__myTopology.ingress_traffic[my_node_id]}', ELogType.LOGALL, self.__ownernode.timestamp, self.iName) 
+            if my_node_id in self.__myTopology.egress_traffic:
+                self.__logger.write_Log(f'[Traffic Monitor Egress]:{self.__myTopology.egress_traffic[my_node_id]}', ELogType.LOGALL, self.__ownernode.timestamp, self.iName) 
+        
+
     __apiHandlerDictionary = {
-        "handle_requests": __handle_requests
+        "handle_requests": __handle_requests,
+        "post_epoch_hook": __post_epoch_hook 
     }
 
     __cacheEvictionStrategyDictionary = {
@@ -267,7 +362,8 @@ class ModelCDNProvider(IModel):
     }
 
     __handleRequestsStrategyDictionary = {
-        "check_local_cache_only": __check_local_cache_only
+        "check_local_cache_only": __check_local_cache_only,
+        "check_k_hops": __check_k_hops
     }
 
     __activeSchedulingStrategyDictionary = {

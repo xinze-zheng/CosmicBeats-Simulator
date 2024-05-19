@@ -28,6 +28,9 @@ class Topology(ITopology):
     __isl_graph: dict
     __isl_dist: dict
 
+    __ingress_traffic: dict
+    __egress_traffic: dict
+
     NEXT_ISL = 0
     PREV_ISL = 1
     LEFT_ISL = 2
@@ -51,6 +54,14 @@ class Topology(ITopology):
     @property
     def isl_graph(self) -> dict:
         return self.__isl_graph
+
+    @property
+    def ingress_traffic(self) -> dict:
+        return self.__ingress_traffic
+    
+    @property
+    def egress_traffic(self) -> dict:
+        return self.__egress_traffic
 
     @property
     def name(self) -> str:
@@ -118,10 +129,8 @@ class Topology(ITopology):
         queue.append([str(nodeFrom), 0])
         visited.add(str(nodeFrom))
         self.__isl_dist[nodeFrom] = {}
-        # print(queue)
         while queue:
             current = queue.popleft()
-            # print(current)
             dist = current[1]
             current_node = current[0]
             self.__isl_dist[nodeFrom][int(current_node)] = int(dist)
@@ -130,8 +139,39 @@ class Topology(ITopology):
                     visited.add(neighbor)
                     queue.append([neighbor, dist + 1])
         return self.__isl_dist[nodeFrom][nodeTo]
+    
+    def get_ISL_path(self, nodeFrom: int, nodeTo: int):
+        """
+        @desc 
+            This function computes the shortest path
+            between two nodes using BFS
+        @return
+            List as path, each entry is (node id, ISL direction from current node to the next node) 
+        """
+
+        visited = set()
+        queue = deque()
+        queue.append([(str(nodeFrom), -1)])
+        visited.add(str(nodeFrom))
+        while queue:
+            current = queue.popleft()
+            current_node = current[-1][0]
+            if int(current_node) == nodeTo:
+                return current
+            for i in range(len(self.__isl_graph[current_node])):
+                neighbor = self.isl_graph[current_node][i]
+                if neighbor not in visited:
+                    visited.add(current_node)
+                    queue.append(current + [(neighbor, i)])
+        return None 
 
     def get_shortest_replica(self, nodeFrom: int, request: str) -> tuple:
+        """
+        @desc
+            return the closest replicas in the constellation for a request
+        @return
+            tuple of min_hop and node id in integer
+        """
         # Return tuple of (min hop, min hop node id)
         if nodeFrom not in self.__isl_dist:
             self.get_ISL_dist(nodeFrom, nodeFrom)
@@ -202,6 +242,8 @@ class Topology(ITopology):
         self.__global_cache = {}
         self.__isl_dist = {}
         self.lock = threading.Lock()
+        self.__ingress_traffic = {}
+        self.__egress_traffic = {}
 
         if _isl_topology is not None: 
             with open(_isl_topology, 'r') as f:

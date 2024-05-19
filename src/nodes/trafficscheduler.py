@@ -253,6 +253,7 @@ class TrafficScheduler(INode):
         self.__logger = _Logger
         self.__models = []
         self.__requesters = []
+        self.__myTopology = None
 
         for config in configs:
             pattern: dict
@@ -289,7 +290,8 @@ class TrafficScheduler(INode):
                     if _topology.id == self.__topologyid:
                         _myTopology = _topology
                         break
-
+                if self.__myTopology is None:
+                    self.__myTopology = _myTopology
                 for requester in self.__requesters:
                     requester.add_topology(_myTopology)
                 break
@@ -297,22 +299,28 @@ class TrafficScheduler(INode):
                 break
 
         if self.__timestamp <= self.__endTimeStamp:
+            self.__timestamp.add_seconds(self.__timedelta)
             self.__logger.write_Log("Executing", ELogType.LOGDEBUG, self.__timestamp)
             
-            with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
-                _results = []
-                #Let's execute all the nodes in parallel
-                for requester in self.__requesters:
-                    _result = executor.submit(requester.send_requests, self.__timestamp)
-                    _results.append(_result)
+            # with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
+            #     _results = []
+            #     #Let's execute all the nodes in parallel
+            #     for requester in self.__requesters:
+            #         _result = executor.submit(requester.send_requests, self.__timestamp)
+            #         _results.append(_result)
                 
-                #Once all the threads are done, we can check if there are any exceptions that were raised, then we can raise them
-                #If we don't do this, then the exceptions will be ignored and the nodes will be out of sync
-                for _result in _results:
-                    _result.result() 
-
-            # update the time of the node
-            self.__timestamp.add_seconds(self.__timedelta)
+            #     #Once all the threads are done, we can check if there are any exceptions that were raised, then we can raise them
+            #     #If we don't do this, then the exceptions will be ignored and the nodes will be out of sync
+            #     for _result in _results:
+            #         _result.result() 
+            for requester in self.__requesters:
+                requester.send_requests(self.__timestamp)
+            
+            # Call post hook
+            sats = self.__myTopology.get_NodesOfAType(ENodeType.SAT)
+            for sat in sats:
+                sat.has_ModelWithName('ModelCDNProvider').call_APIs('post_epoch_hook') 
+           # update the time of the node
             _ret = True
         
         return _ret
@@ -478,4 +486,4 @@ class Requester():
             for i in range(len(targetSatellites)):
                 targetSatellite = targetSatellites[i]
                 requests = requestsPerSat[i]
-                targetSatellite.has_ModelWithName('ModelCDNProvider').call_APIs('handle_requests', requests=requests)
+                targetSatellite.has_ModelWithName('ModelCDNProvider').call_APIs('handle_requests', requests=requests, hop_to_check=2)
