@@ -225,6 +225,7 @@ class TrafficScheduler(INode):
             _timeStamp: Time, 
             _endtime: Time, 
             _Logger: ILogger, 
+            _hop_to_check: int,
             *_additionalArgs) -> None:
         '''
         @desc
@@ -268,7 +269,8 @@ class TrafficScheduler(INode):
                 generateByDistribution,
                 config.load_balance_count,
                 pattern,
-                self.__logger
+                self.__logger,
+                _hop_to_check
             ))
 
     
@@ -425,6 +427,7 @@ def init_TrafficScheduler(
                 _simStartTime, 
                 _simEndTime, 
                 _logger, 
+                _nodeDetails.hop_to_check,
                 _nodeDetails.additionalargs)
     return _newNode
 
@@ -455,7 +458,8 @@ class Requester():
             _access_generation_function,
             _load_balance_count,
             _pattern,
-            _logger
+            _logger,
+            _hop_to_check = 1
             ) -> None:
 
             self.__lat = _lat
@@ -467,6 +471,7 @@ class Requester():
             self.__load_balance_count = _load_balance_count
             self.__pattern = _pattern
             self.__topology = None 
+            self.__hop_to_check = _hop_to_check
             
             self.__location = Location().from_lat_long(_lat, _lon, _alt)
             self.__logger = _logger
@@ -481,9 +486,9 @@ class Requester():
             if targetSatellites is None:
                 self.__logger.write_Log(f"[Warning]: Out of service", ELogType.LOGINFO, timestamp)
                 return
-            
             requestsPerSat = np.array_split(total_requests, len(targetSatellites))
             for i in range(len(targetSatellites)):
                 targetSatellite = targetSatellites[i]
                 requests = requestsPerSat[i]
-                targetSatellite.has_ModelWithName('ModelCDNProvider').call_APIs('handle_requests', requests=requests, hop_to_check=2)
+                res = targetSatellite.has_ModelWithName('ModelCDNProvider').call_APIs('handle_requests', requests=requests, hop_to_check=self.__hop_to_check)
+                self.__logger.write_Log(f'[Request Result]:{targetSatellite.nodeID}, {res}', ELogType.LOGALL, timestamp, f"({self.__lat}, {self.__lon})")

@@ -279,7 +279,7 @@ class ModelCDNProvider(IModel):
                 # This is a cache hit
                 self.__cache.pop(request)
                 self.__cache[request] = True
-                hits.append(True)
+                hits.append("Local")
 
             else:
                 if request not in self.__myTopology.global_cache or len(self.__myTopology.global_cache[request]) <= 0:
@@ -288,6 +288,7 @@ class ModelCDNProvider(IModel):
 
                     # Record the uplink
                     ingress_traffic[self.__ownernode.nodeID][1] += 1
+                    hits.append("Miss")
                 else:
                     # We have a remote hit
                     missed_but_in_sky.append(request)
@@ -310,10 +311,12 @@ class ModelCDNProvider(IModel):
                             ingress_traffic.setdefault(current_node, [0, 0, 0, 0, 0, 0]) 
                             ingress_traffic[int(path[i - 1][0])][isl_direction + 2] += 1
                             egress_traffic[current_node][invsersed_isl_direction + 2] += 1
+                        hits.append("Remote")
 
                     else:
                         # We choose to fetch from ground
-                        egress_traffic[self.__ownernode.nodeID][1] += 1
+                        ingress_traffic[self.__ownernode.nodeID][1] += 1
+                        hits.append("Short Miss")
                     # Save the content locally anyway
                     self.__myTopology.global_cache[request].append(self.__ownernode.nodeID)
 
@@ -324,7 +327,6 @@ class ModelCDNProvider(IModel):
                     poped = self.__cacheEvictionStrategy(cache=self.__cache)[0]
                     self.__myTopology.global_cache[poped].remove(self.__ownernode.nodeID)
                 self.__cache[request] = True
-                hits.append(False)
             # Add downlink for each request
             egress_traffic[self.__ownernode.nodeID][0] += 1
         self.__myTopology.lock.release()
@@ -350,6 +352,10 @@ class ModelCDNProvider(IModel):
                 self.__logger.write_Log(f'[Traffic Monitor Ingress]:{self.__myTopology.ingress_traffic[my_node_id]}', ELogType.LOGALL, self.__ownernode.timestamp, self.iName) 
             if my_node_id in self.__myTopology.egress_traffic:
                 self.__logger.write_Log(f'[Traffic Monitor Egress]:{self.__myTopology.egress_traffic[my_node_id]}', ELogType.LOGALL, self.__ownernode.timestamp, self.iName) 
+
+            # Reset the traffic information
+            self.__myTopology.ingress_traffic[my_node_id] = [0, 0, 0, 0, 0, 0] 
+            self.__myTopology.egress_traffic[my_node_id] = [0, 0, 0, 0, 0, 0] 
         
 
     __apiHandlerDictionary = {
