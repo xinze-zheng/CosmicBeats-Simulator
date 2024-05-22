@@ -477,7 +477,7 @@ class Requester():
             self.__logger = _logger
         
         def send_requests(self, timestamp: Time):
-            total_requests = self.__access_generation_function(pattern = self.__pattern, numToGen = self.__num_request, probOneHitter=0)
+            total_requests = self.__access_generation_function(pattern = self.__pattern, numToGen = self.__num_request, probOneHitter=0.5)
             # Can change to kwarg in the future
             targetSatellites: list = self.__schedule_strategy(self.__location, 
                                                                         timestamp,

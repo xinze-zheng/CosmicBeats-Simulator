@@ -1,5 +1,5 @@
 import threading
-
+import queue
 import numpy as np
 
 from collections import OrderedDict
@@ -27,6 +27,8 @@ class ModelCDNProvider(IModel):
     __nodeToNode = {} #static variable to see if this pair of nodes has been calculated. Node id is the key and the value is a list of node ids
     __preloaded = False #static variable to see if the pass times have been preloaded
     __nodeToTimesLock = threading.Lock() #Lock for the static variable
+    __cache_receiver_queue = queue.Queue()
+    __cache_receiver_cv = threading.Condition()
 
     @property
     def cache(self) -> OrderedDict:
@@ -256,14 +258,8 @@ class ModelCDNProvider(IModel):
     def __check_k_hops(self, **kwargs):
         self.__lock.acquire()
         if self.__myTopology is None:
-            _topologyID = self.__ownernode.topologyID
-            _topologies = self.__ownernode.managerInstance.req_Manager(EManagerReqType.GET_TOPOLOGIES)
-            
-            
-            for _topology in _topologies:
-                if _topology.id == _topologyID:
-                    self.__myTopology = _topology
-                    break
+            self.__set_my_topology()
+
         requests :list = kwargs['requests']
         hop_to_check = kwargs['hop_to_check']
         hits = []
@@ -280,6 +276,7 @@ class ModelCDNProvider(IModel):
                 self.__cache.pop(request)
                 self.__cache[request] = True
                 hits.append("Local")
+                self.__push_to_prev(request)
 
             else:
                 if request not in self.__myTopology.global_cache or len(self.__myTopology.global_cache[request]) <= 0:
@@ -312,6 +309,7 @@ class ModelCDNProvider(IModel):
                             ingress_traffic[int(path[i - 1][0])][isl_direction + 2] += 1
                             egress_traffic[current_node][invsersed_isl_direction + 2] += 1
                         hits.append("Remote")
+                        self.__push_to_prev(request)
 
                     else:
                         # We choose to fetch from ground
@@ -356,11 +354,67 @@ class ModelCDNProvider(IModel):
             # Reset the traffic information
             self.__myTopology.ingress_traffic[my_node_id] = [0, 0, 0, 0, 0, 0] 
             self.__myTopology.egress_traffic[my_node_id] = [0, 0, 0, 0, 0, 0] 
+    
+    def __push_to_prev(self, request):
+        # Call this function to push a request to the previous ISL neighbor
+        neighbors = self.__myTopology.get_ISL_neighbor(self.__ownernode.nodeID) 
+        prev_neighbor = int(neighbors[1])
+        assert prev_neighbor != self.__ownernode.nodeID
+        self.__myTopology.get_Node(prev_neighbor).has_ModelWithName('ModelCDNProvider').call_APIs('proactive_cache_push', request=request)
+    
+    def __push_to_next(self, request):
+        # Call this function to push a request to the previous ISL neighbor
+        neighbors = self.__myTopology.get_ISL_neighbor(self.__ownernode.nodeID) 
+        prev_neighbor = int(neighbors[0])
+        assert prev_neighbor != self.__ownernode.nodeID
+        self.__myTopology.get_Node(prev_neighbor).has_ModelWithName('ModelCDNProvider').call_APIs('proactive_cache_push', request=request)
+    
+    def __push_to_all(self, request):
+        neighbors = self.__myTopology.get_ISL_neighbor(self.__ownernode.nodeID) 
+        for neighbor in neighbors:
+            neighbor = int(neighbor)
+            self.__myTopology.get_Node(neighbor).has_ModelWithName('ModelCDNProvider').call_APIs('proactive_cache_push', request=request) 
+    
+    def __push_to_all_except_next(self, request):
+        neighbors = self.__myTopology.get_ISL_neighbor(self.__ownernode.nodeID) 
+        for i in range(1, len(neighbors)):
+            neighbor = int(neighbors[i])
+            self.__myTopology.get_Node(neighbor).has_ModelWithName('ModelCDNProvider').call_APIs('proactive_cache_push', request=request)  
+    
+    def __proactive_cache_receiver(self, **kwarg):
+        # Don't record the traffic yet
+        request = kwarg['request']
+        if request in self.__cache:
+            return
+        # Mark global existence
+        if self.__myTopology is None:
+            self.__set_my_topology()
+        self.__myTopology.global_cache[request].append(self.__ownernode.nodeID)
+        if self.__cacheSize < self.__cacheCapacity:
+            self.__cacheSize += 1
+        else:
+            # We need an eviction
+            poped = self.__cacheEvictionStrategy(cache=self.__cache)[0]
+            self.__myTopology.global_cache[poped].remove(self.__ownernode.nodeID)
+        self.__cache[request] = True
+
+
+    def __set_my_topology(self):
+        _topologyID = self.__ownernode.topologyID
+        _topologies = self.__ownernode.managerInstance.req_Manager(EManagerReqType.GET_TOPOLOGIES)
+            
+            
+        for _topology in _topologies:
+            if _topology.id == _topologyID:
+                self.__myTopology = _topology
+                break
+
         
 
     __apiHandlerDictionary = {
         "handle_requests": __handle_requests,
-        "post_epoch_hook": __post_epoch_hook 
+        "post_epoch_hook": __post_epoch_hook,
+        "proactive_cache_push": __proactive_cache_receiver
     }
 
     __cacheEvictionStrategyDictionary = {
